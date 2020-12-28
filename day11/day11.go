@@ -26,7 +26,7 @@ func (b Board) myPrint() {
 	}
 }
 
-func (b1 Board) isSame(b2 Board) bool {
+func (b1 Board) equal(b2 Board) bool {
 	for r := range b1 {
 		for c := range b1[r] {
 			if b1[r][c] != b2[r][c] {
@@ -56,23 +56,13 @@ func (b Board) validCoord(r, c int) bool {
 	return 0 <= r && r < len(b) && 0 <= c && c < len(b[0])
 }
 
-func (b Board) noOccupiedAdjacent(cell rune, r, c int) bool {
-	for _, adj := range b.adjacentCells(cell, r, c) {
-		if adj == occupied {
-			return false
-		}
-	}
-	return true
-}
-
-func (b Board) fourOrMoreOccupied(cell rune, r, c int) bool {
-	numOccupied := 0
+func (b Board) countOccupiedAjacent(cell rune, r, c int) (numOccupied int) {
 	for _, adj := range b.adjacentCells(cell, r, c) {
 		if adj == occupied {
 			numOccupied++
 		}
 	}
-	return numOccupied >= 4
+	return
 }
 
 /*
@@ -81,9 +71,9 @@ If a seat is occupied (#) and four or more seats adjacent to it are also occupie
 Otherwise, the seat's state does not change.
 */
 func (b Board) nextCellState(cell rune, r int, c int) rune {
-	if cell == empty && b.noOccupiedAdjacent(cell, r, c) {
+	if cell == empty && b.countOccupiedAjacent(cell, r, c) == 0 {
 		return occupied
-	} else if cell == occupied && b.fourOrMoreOccupied(cell, r, c) {
+	} else if cell == occupied && b.countOccupiedAjacent(cell, r, c) >= 4 {
 		return empty
 	}
 	return cell
@@ -125,7 +115,7 @@ func main() {
 	}
 
 	nextGrid := grid.next()
-	for !grid.isSame(nextGrid) {
+	for !grid.equal(nextGrid) {
 		grid, nextGrid = nextGrid, nextGrid.next()
 	}
 	fmt.Println(grid.countOccupied())
