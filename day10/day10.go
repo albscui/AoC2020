@@ -32,7 +32,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer fp.Close()
 
+	// Parse input
 	scanner := bufio.NewScanner(fp)
 	joltages := []int{0}
 	for scanner.Scan() {

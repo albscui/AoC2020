@@ -172,9 +172,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer fp.Close()
 
-	grid := Board{}
+	// Parse input
 	scanner := bufio.NewScanner(fp)
+	grid := Board{}
 	for scanner.Scan() {
 		grid = append(grid, []rune(scanner.Text()))
 	}
