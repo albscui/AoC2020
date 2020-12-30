@@ -18,24 +18,14 @@ const (
 	F
 )
 
-func getAction(a byte) int {
-	switch a {
-	case 'N':
-		return N
-	case 'S':
-		return S
-	case 'W':
-		return W
-	case 'E':
-		return E
-	case 'L':
-		return L
-	case 'R':
-		return R
-	case 'F':
-		return F
-	}
-	return F
+type Mover interface {
+	N(int)
+	S(int)
+	W(int)
+	E(int)
+	L(int)
+	R(int)
+	F(int)
 }
 
 type Ship struct {
@@ -43,35 +33,46 @@ type Ship struct {
 	direction int
 }
 
-func (s *Ship) move(a, v int) {
-	switch a {
+func (s *Ship) N(n int) {
+	s.move(N, n)
+}
+func (s *Ship) S(n int) {
+	s.move(S, n)
+}
+func (s *Ship) E(n int) {
+	s.move(E, n)
+}
+func (s *Ship) W(n int) {
+	s.move(W, n)
+}
+func (s *Ship) L(n int) {
+	s.rotate([]int{E, N, W, S}, n)
+}
+func (s *Ship) R(n int) {
+	s.rotate([]int{E, S, W, N}, n)
+}
+func (s *Ship) F(n int) {
+	s.move(s.direction, n)
+}
+
+func (s *Ship) move(direction, n int) {
+	switch direction {
 	case N:
-		s.y += v
+		s.y += n
 	case S:
-		s.y -= v
+		s.y -= n
 	case E:
-		s.x += v
+		s.x += n
 	case W:
-		s.x -= v
-	case L, R:
-		s.rotate(a, v)
-	case F:
-		s.move(s.direction, v)
+		s.x -= n
 	}
 }
 
-func (s *Ship) rotate(d, a int) {
-	// 0, 90, 180, 270, 360
-	var directions [4]int
-	switch d {
-	case L:
-		directions = [4]int{E, N, W, S}
-	case R:
-		directions = [4]int{E, S, W, N}
-	}
+func (s *Ship) rotate(directions []int, angle int) {
+	// angles: 0, 90, 180, 270, 360
 	for i, d := range directions {
 		if s.direction == d {
-			_idx := int(math.Mod(float64(i+a/90), 4))
+			_idx := int(math.Mod(float64(i+angle/90), 4))
 			s.direction = directions[_idx]
 			break
 		}
@@ -83,19 +84,19 @@ func (s Ship) taxiCabDist() float64 {
 }
 
 type Waypoint struct {
-	x, y int
+	x, y int // relative to a ship as the origin
 }
 
-func (w *Waypoint) move(a, v int) {
-	switch a {
+func (w *Waypoint) move(direction, n int) {
+	switch direction {
 	case N:
-		w.y += v
+		w.y += n
 	case S:
-		w.y -= v
+		w.y -= n
 	case W:
-		w.x -= v
+		w.x -= n
 	case E:
-		w.x += v
+		w.x += n
 	}
 }
 
@@ -122,71 +123,91 @@ type ShipWaypoint struct {
 	waypoint Waypoint
 }
 
-func (sw *ShipWaypoint) rotateWaypoint(d, a int) {
-	switch d {
-	case L:
-		sw.waypoint.ccw(a)
-	case R:
-		sw.waypoint.cw(a)
-	}
+func (sw *ShipWaypoint) N(n int) {
+	sw.waypoint.move(N, n)
+}
+func (sw *ShipWaypoint) S(n int) {
+	sw.waypoint.move(S, n)
+}
+func (sw *ShipWaypoint) E(n int) {
+	sw.waypoint.move(E, n)
+}
+func (sw *ShipWaypoint) W(n int) {
+	sw.waypoint.move(W, n)
+}
+func (sw *ShipWaypoint) L(n int) {
+	sw.waypoint.ccw(n)
+}
+func (sw *ShipWaypoint) R(n int) {
+	sw.waypoint.cw(n)
+}
+func (sw *ShipWaypoint) F(n int) {
+	sw.ship.E(sw.waypoint.x * n)
+	sw.ship.N(sw.waypoint.y * n)
 }
 
-func (sw *ShipWaypoint) moveShipToWaypoint(n int) {
-	for i := 0; i < n; i++ {
-		sw.ship.x += sw.waypoint.x
-		sw.ship.y += sw.waypoint.y
-	}
-}
-
-func (sw *ShipWaypoint) move(action, value int) {
-	switch action {
-	case N:
-		sw.waypoint.move(action, value)
-	case S:
-		sw.waypoint.move(action, value)
-	case E:
-		sw.waypoint.move(action, value)
-	case W:
-		sw.waypoint.move(action, value)
-	case L, R:
-		sw.rotateWaypoint(action, value)
-	case F:
-		sw.moveShipToWaypoint(value)
-	}
-
-}
-
-func execute(s *Ship, instructions [][2]int) {
+func execute(s Mover, instructions [][2]int) {
 	for _, instruction := range instructions {
-		s.move(instruction[0], instruction[1])
+		n := instruction[1]
+		switch instruction[0] {
+		case N:
+			s.N(n)
+		case S:
+			s.S(n)
+		case W:
+			s.W(n)
+		case E:
+			s.E(n)
+		case L:
+			s.L(n)
+		case R:
+			s.R(n)
+		case F:
+			s.F(n)
+		}
 	}
 }
 
-func execute2(s *ShipWaypoint, instructions [][2]int) {
-	for _, instruction := range instructions {
-		s.move(instruction[0], instruction[1])
-	}
-}
-
-func main() {
-	fp, err := os.Open("input")
+func parseInput(filepath string) (instructions [][2]int) {
+	fp, err := os.Open(filepath)
 	if err != nil {
 		panic(err)
 	}
 	defer fp.Close()
 
 	// Parse input
-	instructions := [][2]int{}
 	scanner := bufio.NewScanner(fp)
+	var action, value int
 	for scanner.Scan() {
 		line := scanner.Text()
-		action := getAction(line[0])
-		value, err := strconv.Atoi(line[1:])
+		switch line[0] {
+		case 'N':
+			action = N
+		case 'S':
+			action = S
+		case 'W':
+			action = W
+		case 'E':
+			action = E
+		case 'L':
+			action = L
+		case 'R':
+			action = R
+		case 'F':
+			action = F
+		}
+		value, err = strconv.Atoi(line[1:])
 		if err != nil {
 			panic(err)
 		}
 		instructions = append(instructions, [2]int{action, value})
 	}
+	return
+}
+
+func main() {
+	var instructions [][2]int
+	instructions = parseInput("input")
 
 	// Part 1
 	ship := Ship{0, 0, E}
@@ -195,6 +216,6 @@ func main() {
 
 	// Part 2
 	sw := ShipWaypoint{Ship{0, 0, E}, Waypoint{x: 10, y: 1}}
-	execute2(&sw, instructions)
+	execute(&sw, instructions)
 	fmt.Println(sw.ship.taxiCabDist())
 }
